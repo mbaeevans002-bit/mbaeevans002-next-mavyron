@@ -471,8 +471,8 @@ export function financePage(ctx) {
       </div>
       <div class="card mt2">
         <h3>Expenses</h3>
-        ${expenses.length ? `<div class="table-wrap mt2"><table><thead><tr><th>Date</th><th>Category</th><th>Amount</th></tr></thead>
-          <tbody>${expenses.map((e) => `<tr><td class="muted" style="font-size:.76rem">${esc(e.incurred_on)}</td><td>${esc(e.category || 'General')}</td><td>${moneyCell(e.amount_cents, e.currency)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted mt1" style="font-size:.84rem">No expenses recorded.</p>'}
+        ${expenses.length ? `<div class="table-wrap mt2"><table><thead><tr><th>Date</th><th>Category</th><th>Note</th><th>Amount</th></tr></thead>
+          <tbody>${expenses.map((e) => `<tr><td class="muted" style="font-size:.76rem">${esc(e.incurred_on)}</td><td>${esc(e.category || 'General')}</td><td class="muted" style="font-size:.78rem">${esc(e.description || '—')}</td><td>${moneyCell(e.amount_cents, e.currency)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted mt1" style="font-size:.84rem">No expenses recorded.</p>'}
         ${canManage ? `<form method="post" action="${ctx.base}/finance/expenses" class="mt3">
           ${csrfField(ctx.csrf)}
           <div class="field-row">
