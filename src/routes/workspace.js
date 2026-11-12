@@ -943,6 +943,10 @@ router.post('/content/:id/delete', wrap(async (req, res) => {
 
 /* ═════════════════════════════ automation ═════════════════════════════ */
 
+/* The navigation entry for Automation points at /marketing; route it to the
+   workflow workspace so the link performs an action instead of returning 404. */
+router.get('/marketing', (req, res) => res.redirect(`/app/${req.business.slug}/automations`));
+
 router.get('/automations', (req, res) => {
   const business = req.business;
   res.type('html').send(I.automationsPage(ctx(req, res, {

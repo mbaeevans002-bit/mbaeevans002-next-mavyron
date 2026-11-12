@@ -367,6 +367,172 @@ try {
   const forgot = await guest.post('/forgot', { email, _csrf: Client.csrf(forgotPage.text) });
   check('Password recovery responds without disclosing account existence', forgot.status === 303, `status ${forgot.status}`);
 
+  /* ── every workspace page resolves ───────────────────────────────── */
+  const workspaceRoutes = [
+    '', '/calendar', '/bookings', '/customers', '/services', '/staff', '/branches', '/finance',
+    '/healthcare', '/documents', '/integrations', '/settings', '/support', '/conversations',
+    '/ai', '/marketing', '/content', '/analytics', '/command', '/site', '/onboarding',
+    '/audit', '/notifications', '/search', '/billing',
+  ];
+  const brokenPages = [];
+  for (const route of workspaceRoutes) {
+    const res = await owner.get(`/app/aurora-studio${route}`);
+    const body = res.text || '';
+    const serverError = /Internal Server Error|Cannot read propert|Cannot set propert|ReferenceError/i.test(body);
+    if (res.status >= 400 || serverError) {
+      brokenPages.push(`${route || '/'} → ${res.status}${serverError ? ' (error text)' : ''}`);
+    }
+  }
+  check('Every workspace page resolves without server errors', brokenPages.length === 0, brokenPages.join(', ') || `${workspaceRoutes.length} pages`);
+
+  /* ── no dead internal links on the public site ──────────────────── */
+  const publicPages = ['/', '/pricing', '/industries', '/solutions/healthcare', '/security', '/partners', '/contact', '/status'];
+  const seenLinks = new Set();
+  const deadLinks = [];
+  for (const page of publicPages) {
+    const res = await guest.get(page);
+    for (const match of (res.text || '').matchAll(/href="(\/[^"#?]*)/g)) {
+      const href = match[1];
+      if (!href || seenLinks.has(href)) continue;
+      seenLinks.add(href);
+      if (/^\/(api|webhooks|portal|admin|app)\b/.test(href)) continue;
+      if (/\.(css|js|svg|png|jpg|jpeg|webp|ico|xml|txt|webmanifest)$/.test(href)) continue;
+      const target = await guest.get(href);
+      if (target.status >= 400) deadLinks.push(`${href} → ${target.status} (from ${page})`);
+    }
+  }
+  check('No dead internal links on public pages', deadLinks.length === 0, deadLinks.slice(0, 8).join(', ') || `${seenLinks.size} links checked`);
+
+  /* ── action matrix: each control performs its real operation ────── */
+  const csrfFor = async (path) => Client.csrf((await owner.get(path)).text);
+  const ws = '/app/aurora-studio';
+
+  const customerPost = await owner.post(`${ws}/customers`, {
+    name: 'Brian Otieno', phone: '0712345678', email: 'brian@example.com',
+    consent: 'on', tags: 'VIP, walk-in', birthday: '1990-05-04',
+    _csrf: await csrfFor(`${ws}/customers`),
+  });
+  const crmPage = await owner.get(`${ws}/customers`);
+  check('CRM creates a customer from the form', customerPost.status === 303 && /Brian Otieno/.test(crmPage.text), `status ${customerPost.status}`);
+
+  const customerId = /\/customers\/([A-Za-z0-9_]+)"/.exec(crmPage.text)?.[1];
+  const customerEdit = customerId
+    ? await owner.post(`${ws}/customers/${customerId}`, {
+      name: 'Brian Otieno', preferences: 'Prefers Saturdays', notes: 'Allergic to ammonia', tags: 'VIP',
+      _csrf: await csrfFor(`${ws}/customers/${customerId}`),
+    })
+    : { status: 0 };
+  const customerView = customerId ? await owner.get(`${ws}/customers/${customerId}`) : { text: '' };
+  check('CRM edit persists notes and preferences', customerEdit.status === 303 && /Allergic to ammonia/.test(customerView.text), `status ${customerEdit.status}`);
+
+  const calendarForm = await owner.get(`${ws}/calendar?date=${date}`);
+  const bookingId = /\/bookings\/([A-Za-z0-9_]+)\/status/.exec(calendarForm.text)?.[1];
+  const bookingComplete = bookingId
+    ? await owner.post(`${ws}/bookings/${bookingId}/status`, { status: 'completed', _csrf: Client.csrf(calendarForm.text) })
+    : { status: 0, location: null };
+  const calendarAfter = await owner.get(bookingComplete.location || `${ws}/calendar`);
+  check('Booking status control completes the booking', bookingComplete.status === 303 && /marked completed/i.test(calendarAfter.text), `status ${bookingComplete.status}`);
+
+  const invoicePost = await owner.post(`${ws}/finance/invoices`, {
+    customer_id: customerId || '', amount: '2500', description: 'Signature cut and finish',
+    _csrf: await csrfFor(`${ws}/finance`),
+  });
+  const financePage = await owner.get(`${ws}/finance`);
+  const invoiceId = /\/invoices\/([A-Za-z0-9_]+)\/paid/.exec(financePage.text)?.[1];
+  check('Invoice form creates an invoice', invoicePost.status === 303 && Boolean(invoiceId), `status ${invoicePost.status}`);
+
+  const invoicePaid = invoiceId
+    ? await owner.post(`${ws}/finance/invoices/${invoiceId}/paid`, { _csrf: Client.csrf(financePage.text) })
+    : { status: 0 };
+  const financeAfter = await owner.get(`${ws}/finance`);
+  check('Marking an invoice paid records a payment', invoicePaid.status === 303 && /recorded as paid/i.test(financeAfter.text), `status ${invoicePaid.status}`);
+
+  const expensePost = await owner.post(`${ws}/finance/expenses`, {
+    amount: '450', category: 'Supplies', note: 'Clipper blades', _csrf: await csrfFor(`${ws}/finance`),
+  });
+  const financeWithExpense = await owner.get(`${ws}/finance`);
+  check('Expense form records a real expense', expensePost.status === 303 && /Clipper blades/.test(financeWithExpense.text), `status ${expensePost.status}`);
+
+  const documentPost = await owner.post(`${ws}/documents`, {
+    name: 'Price list.txt', mime: 'text/plain', category: 'Policies',
+    data: Buffer.from('Signature Cut 1500').toString('base64'),
+    _csrf: await csrfFor(`${ws}/documents`),
+  });
+  const documentJson = (() => { try { return JSON.parse(documentPost.text); } catch { return {}; } })();
+  const download = documentJson.id ? await owner.get(`${ws}/documents/${documentJson.id}/download`) : { status: 0, text: '' };
+  check('Document upload stores bytes and download returns them', documentPost.status === 200 && download.status === 200 && /Signature Cut 1500/.test(download.text), `status ${documentPost.status}/${download.status}`);
+
+  const documentDelete = documentJson.id
+    ? await owner.post(`${ws}/documents/${documentJson.id}/delete`, { _csrf: await csrfFor(`${ws}/documents`) })
+    : { status: 0 };
+  const documentsAfter = await owner.get(`${ws}/documents`);
+  check('Document delete removes the stored file', documentDelete.status === 303 && !/Price list\.txt/.test(documentsAfter.text), `status ${documentDelete.status}`);
+
+  const servicesForm = await owner.get(`${ws}/services`);
+  const serviceToggleId = /\/services\/([A-Za-z0-9_]+)\/toggle/.exec(servicesForm.text)?.[1];
+  const deactivate = serviceToggleId
+    ? await owner.post(`${ws}/services/${serviceToggleId}/toggle`, { _csrf: Client.csrf(servicesForm.text) })
+    : { status: 0 };
+  const publicBookAfter = await guest.get('/business/aurora-studio/book');
+  check('Deactivating a service hides it from public booking', deactivate.status === 303 && !/Signature Cut/.test(publicBookAfter.text), `status ${deactivate.status}`);
+  const reactivate = serviceToggleId
+    ? await owner.post(`${ws}/services/${serviceToggleId}/toggle`, { _csrf: await csrfFor(`${ws}/services`) })
+    : { status: 0 };
+  const publicBookRestored = await guest.get('/business/aurora-studio/book');
+  check('Reactivating a service restores public booking', reactivate.status === 303 && /Signature Cut/.test(publicBookRestored.text), `status ${reactivate.status}`);
+
+  const invite = await owner.post(`${ws}/settings/invite`, {
+    email: `manager${Date.now()}@aurora.test`, role: 'manager', _csrf: await csrfFor(`${ws}/settings`),
+  });
+  check('Staff invitation creates a real membership and one-time link', invite.status === 200 && /Invitation created/.test(invite.text), `status ${invite.status}`);
+
+  const settingsFresh = await owner.get(`${ws}/settings`);
+  const apiKeyId = /\/api-keys\/([A-Za-z0-9_]+)\/revoke/.exec(settingsFresh.text)?.[1];
+  const revoke = apiKeyId
+    ? await owner.post(`${ws}/settings/api-keys/${apiKeyId}/revoke`, { _csrf: Client.csrf(settingsFresh.text) })
+    : { status: 0 };
+  const revokedKeyCall = await fetch(`${BASE}/api/v1/services`, { headers: { 'x-api-key': apiKey } });
+  check('Revoked API key stops authenticating', revoke.status === 303 && revokedKeyCall.status === 401, `status ${revoke.status}/${revokedKeyCall.status}`);
+
+  const workflowPost = await owner.post(`${ws}/automations`, {
+    name: 'Birthday greeting', trigger: 'customer.birthday', action: 'notification.create',
+    template: 'Happy birthday from Aurora Studio', _csrf: await csrfFor(`${ws}/automations`),
+  });
+  const automationsPage = await owner.get(`${ws}/automations`);
+  const workflowId = /\/automations\/([A-Za-z0-9_]+)\/test/.exec(automationsPage.text)?.[1];
+  check('Workflow builder saves a runnable workflow', workflowPost.status === 303 && Boolean(workflowId), `status ${workflowPost.status}`);
+
+  const workflowTest = workflowId
+    ? await owner.post(`${ws}/automations/${workflowId}/test`, { _csrf: Client.csrf(automationsPage.text) })
+    : { status: 0, location: null };
+  const automationsAfter = await owner.get(workflowTest.location || `${ws}/automations`);
+  check('Workflow test run executes on the backend and reports its result', workflowTest.status === 303 && /Test run (completed|failed)/i.test(automationsAfter.text), `status ${workflowTest.status}`);
+
+  const contentPost = await owner.post(`${ws}/content`, {
+    kind: 'caption', platform: 'instagram', prompt: 'Weekend offer for returning clients',
+    _csrf: await csrfFor(`${ws}/content`),
+  });
+  const contentPage = await owner.get(`${ws}/content`);
+  check(
+    'Content studio reports the missing AI provider instead of faking output',
+    contentPost.status === 303 && /provider|not configured|unavailable/i.test(contentPage.text),
+    `status ${contentPost.status}`,
+  );
+
+  const searchPage = await owner.get(`${ws}/search?q=Brian`);
+  check('Global search returns the tenant record', searchPage.status === 200 && /Brian Otieno/.test(searchPage.text), `status ${searchPage.status}`);
+
+  const clinicDashboard = await intruder.get('/app/other-co');
+  const patientPost = await intruder.post('/app/other-co/healthcare/patients', {
+    first_name: 'Jane', last_name: 'Wanjiku', sex: 'female', phone: '+254711000111',
+    _csrf: Client.csrf(clinicDashboard.text),
+  });
+  const healthcarePage = await intruder.get('/app/other-co/healthcare');
+  check('Healthcare patient registration works for a clinic tenant', patientPost.status === 303 && /Jane Wanjiku/.test(healthcarePage.text), `status ${patientPost.status}`);
+
+  const auditPage = await owner.get(`${ws}/audit`);
+  check('Audit log records the actions performed', auditPage.status === 200 && /invoice|document|customer|apikey/i.test(auditPage.text), `status ${auditPage.status}`);
+
   /* ── logout ─────────────────────────────────────────────────────── */
   const logout = await owner.post('/logout', { _csrf: Client.csrf((await owner.get('/app/aurora-studio')).text) });
   check('Logout ends the session', logout.status === 303, `status ${logout.status}`);
