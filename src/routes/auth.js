@@ -52,7 +52,6 @@ router.post('/signup', (req, res, next) => {
     });
     startSession(user, req, res);
     recordAudit({ actor: user, action: 'user.signup', entityType: 'user', entityId: user.id, ip: req.ip });
-    req.session.businessName = values.business || null;
     res.redirect(303, '/app/new');
   } catch (err) {
     if (err instanceof AppError) {

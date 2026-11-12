@@ -168,7 +168,7 @@ export function revenueSummary(businessId, days = 30) {
   const pending = payments.filter((p) => ['pending', 'processing', 'requires_action'].includes(p.status));
   const failed = payments.filter((p) => ['failed', 'cancelled', 'refunded'].includes(p.status));
   const invoiceOutstanding = scalar(
-    "SELECT COALESCE(SUM(total_cents),0) FROM invoices WHERE business_id = ? AND status IN ('unpaid','partial')",
+    "SELECT COALESCE(SUM(amount_cents),0) FROM invoices WHERE business_id = ? AND status IN ('unpaid','partial')",
     [businessId]
   ) || 0;
   const expenses = scalar(
@@ -256,7 +256,7 @@ export function search(businessId, role, query) {
     }
   }
   if (can(role, 'finance.view')) {
-    for (const row of all('SELECT id, number, total_cents, status FROM invoices WHERE business_id = ? AND number LIKE ? LIMIT 4', [businessId, like])) {
+    for (const row of all('SELECT id, number, amount_cents, status FROM invoices WHERE business_id = ? AND number LIKE ? LIMIT 4', [businessId, like])) {
       results.push({ type: 'invoice', id: row.id, label: row.number, detail: `Invoice · ${row.status}`, href: '/app/finance' });
     }
   }

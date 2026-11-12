@@ -750,7 +750,8 @@ router.get('/ai', (req, res) => {
     knowledge: all('SELECT * FROM knowledge_docs WHERE business_id = ? ORDER BY updated_at DESC', [business.id]),
     usage: aiUsageSummary(business.id, 30),
     byAgent: all(
-      `SELECT agent_key, COUNT(*) AS runs, SUM(COALESCE(tokens,0)) AS tokens
+      `SELECT agent_key, COUNT(*) AS runs,
+              SUM(COALESCE(input_tokens,0) + COALESCE(output_tokens,0)) AS tokens
          FROM ai_runs WHERE business_id = ? AND created_at >= ? GROUP BY agent_key`,
       [business.id, new Date(Date.now() - 30 * 86400000).toISOString()],
     ),

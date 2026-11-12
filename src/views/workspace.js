@@ -295,7 +295,7 @@ export function customerPage(ctx) {
       </div>
       <div class="card mt2">
         <h3>Invoices</h3>
-        ${invoices.length ? `<div class="list-rows mt1">${invoices.map((i) => `<div class="row"><div><strong>${esc(i.number)}</strong><div class="muted" style="font-size:.76rem">${esc(prettyDate(i.issued_on))}</div></div><div class="right">${moneyCell(i.total_cents, i.currency)}<div>${statusBadge(i.status)}</div></div></div>`).join('')}</div>` : '<p class="muted mt1" style="font-size:.84rem">No invoices recorded.</p>'}
+        ${invoices.length ? `<div class="list-rows mt1">${invoices.map((i) => `<div class="row"><div><strong>${esc(i.number)}</strong><div class="muted" style="font-size:.76rem">${esc(prettyDate(i.created_at))}</div></div><div class="right">${moneyCell(i.amount_cents, i.currency)}<div>${statusBadge(i.status)}</div></div></div>`).join('')}</div>` : '<p class="muted mt1" style="font-size:.84rem">No invoices recorded.</p>'}
       </div>
       ${notes ? `<div class="card mt2"><h3>Audit history</h3><div class="list-rows mt1">${notes.map((n) => `<div class="row"><div><strong style="font-size:.84rem">${esc(n.action)}</strong><div class="muted" style="font-size:.74rem">${esc(n.actor_label)} · ${esc(n.result)}</div></div><div class="right mono" style="font-size:.72rem">${esc(relativeTime(n.created_at))}</div></div>`).join('')}</div></div>` : ''}
     </div>
@@ -449,7 +449,7 @@ export function financePage(ctx) {
       <h3>Invoices</h3>
       ${invoices.length ? `<div class="table-wrap mt2"><table><thead><tr><th>Number</th><th>Customer</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
         <tbody>${invoices.map((i) => `<tr><td class="mono" style="font-size:.74rem">${esc(i.number)}</td><td>${esc(i.customer_name || '—')}</td>
-          <td class="muted" style="font-size:.76rem">${esc(prettyDate(i.issued_on))}</td><td>${moneyCell(i.total_cents, i.currency)}</td><td>${statusBadge(i.status)}</td>
+          <td class="muted" style="font-size:.76rem">${esc(prettyDate(i.created_at))}</td><td>${moneyCell(i.amount_cents, i.currency)}</td><td>${statusBadge(i.status)}</td>
           <td class="right">${i.status !== 'paid' && canManage ? `<form method="post" action="${ctx.base}/finance/invoices/${attr(i.id)}/paid" style="display:inline">${csrfField(ctx.csrf)}<button class="btn btn-sm btn-ghost" type="submit">Mark paid</button></form>` : ''}</td></tr>`).join('')}</tbody></table></div>` : emptyState('No invoices yet', 'Create an invoice for a customer or booking.')}
       ${canManage ? `<form method="post" action="${ctx.base}/finance/invoices" class="mt3">
         ${csrfField(ctx.csrf)}
