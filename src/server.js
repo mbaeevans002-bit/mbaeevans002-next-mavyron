@@ -11,7 +11,7 @@ import { AppError } from './lib/errors.js';
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
 import workspaceRoutes from './routes/workspace.js';
-import siteRoutes from './routes/site.js';
+import siteRoutes, { portalRouter } from './routes/site.js';
 import apiRoutes from './routes/api.js';
 import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
@@ -106,6 +106,7 @@ app.use((req, res, next) => {
 app.use('/api/v1', apiRoutes);
 app.use('/admin', adminRoutes);
 app.use('/business', siteRoutes);
+app.use('/portal', portalRouter);
 app.use('/app', workspaceRoutes);
 app.use('/', authRoutes);
 app.use('/', publicRoutes);
