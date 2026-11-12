@@ -188,6 +188,18 @@ export function queueBookingNotification({ business, customer, service, booking,
  * Creates a booking inside a transaction. The unique partial index on
  * (staff_id, start_at) plus the overlap query make double booking impossible.
  */
+/**
+ * Interpret an appointment time. Values without a timezone offset are treated as
+ * local time in the business timezone, so a booking made for 15:00 means 15:00
+ * where the business actually operates.
+ */
+function parseBookingStart(startAt, tz) {
+  const raw = String(startAt || '').trim();
+  const naive = /^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
+  if (naive) return zonedToUtc(naive[1], int(naive[2], 0) * 60 + int(naive[3], 0), tz);
+  return new Date(raw);
+}
+
 export function createBooking({
   business, serviceId, staffId = null, branchId = null, startAt,
   customer = null, customerId = null, notes = null, source = 'workspace',
@@ -201,9 +213,9 @@ export function createBooking({
     : get('SELECT * FROM branches WHERE business_id = ? ORDER BY is_primary DESC LIMIT 1', [business.id]);
   assert(branch, 422, 'Add a branch before taking bookings.', 'invalid_branch');
 
-  const startDate = new Date(startAt);
-  assert(!Number.isNaN(startDate.getTime()), 422, 'Choose a valid appointment time.', 'invalid_time');
   const tz = business.timezone || 'Africa/Nairobi';
+  const startDate = parseBookingStart(startAt, tz);
+  assert(startDate && !Number.isNaN(startDate.getTime()), 422, 'Choose a valid appointment time.', 'invalid_time');
   const localDate = utcToLocalParts(startDate.toISOString(), tz).date;
 
   const availability = dayAvailability({ business, branchId: branch.id, service, staffId, date: localDate });

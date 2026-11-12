@@ -242,7 +242,7 @@ try {
     name: 'Aisha Mwangi', phone: '+254711222333', email: 'aisha@example.com',
     notes: 'First visit', _csrf: Client.csrf(detailsPage.text),
   });
-  const reference = /BK-[A-Z0-9]{4,}/.exec(confirmPage.text)?.[0] || '';
+  const reference = /MVB-[A-Z0-9]{4,}/.exec(confirmPage.text)?.[0] || '';
   check('Public booking is stored and confirmed', confirmPage.status === 200 && Boolean(reference), `status ${confirmPage.status} ref ${reference || 'none'}`);
 
   const calendar = await owner.get(`/app/aurora-studio/calendar?date=${date}`);
