@@ -26,6 +26,9 @@ router.get('/', (req, res) => {
 router.get('/pricing', (req, res) => send(res, pricingPage({ user: req.user, plans: listPlans() })));
 router.get('/industries', (req, res) => send(res, industriesPage({ user: req.user })));
 router.get('/healthcare', (req, res) => send(res, healthcarePage({ user: req.user })));
+/* Hosting ingress reserves top-level /health* paths for health probes, so the public
+   healthcare page is also served from /solutions/healthcare and links use that path. */
+router.get('/solutions/healthcare', (req, res) => send(res, healthcarePage({ user: req.user })));
 router.get('/security', (req, res) => send(res, securityPage({ user: req.user })));
 router.get('/partners', (req, res) => send(res, partnersPage({ user: req.user })));
 
@@ -94,7 +97,7 @@ router.get('/robots.txt', (req, res) => {
 
 router.get('/sitemap.xml', (req, res) => {
   const host = `${req.protocol}://${req.get('host')}`;
-  const staticPaths = ['/', '/pricing', '/industries', '/healthcare', '/security', '/partners', '/contact', '/legal/terms', '/legal/privacy', '/legal/dpa'];
+  const staticPaths = ['/', '/pricing', '/industries', '/solutions/healthcare', '/security', '/partners', '/contact', '/legal/terms', '/legal/privacy', '/legal/dpa'];
   const businesses = all("SELECT slug, updated_at FROM businesses WHERE status = 'active' ORDER BY updated_at DESC LIMIT 5000");
   const urls = [
     ...staticPaths.map((p) => `<url><loc>${host}${p}</loc></url>`),

@@ -153,7 +153,7 @@ try {
   check('Landing page renders', landing.status === 200 && /MAVYRON/i.test(landing.text), `status ${landing.status}`);
   check('Security headers present', landing.headers.get('x-content-type-options') === 'nosniff');
 
-  for (const route of ['/pricing', '/industries', '/healthcare', '/security', '/partners', '/contact']) {
+  for (const route of ['/pricing', '/industries', '/solutions/healthcare', '/security', '/partners', '/contact']) {
     const res = await guest.get(route);
     check(`Public route ${route}`, res.status === 200, `status ${res.status}`);
   }

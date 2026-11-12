@@ -172,7 +172,7 @@ export function landing({ user, plans = [], stats = null }) {
           <li>AI restricted to administrative assistance and documentation drafts</li>
           <li>No claim of HIPAA, GDPR or Kenya DPA certification — those require verified audits</li>
         </ul>
-        <a class="btn" href="/healthcare">Healthcare architecture ${icon('arrow')}</a>
+        <a class="btn" href="/solutions/healthcare">Healthcare architecture ${icon('arrow')}</a>
       </div>
       <div class="grid">
         ${[

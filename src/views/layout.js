@@ -113,7 +113,7 @@ function publicHead({ title, description, canonical = '', jsonLd = null }) {
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MAVYRON">
 ${canonical ? `<link rel="canonical" href="${attr(canonical)}">` : ''}
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/app.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -132,7 +132,7 @@ export function publicPage({ title, description, body, user = null, canonical = 
   <nav class="site-nav" aria-label="Primary">
     ${navLink('/#platform', 'Platform')}
     ${navLink('/industries', 'Industries')}
-    ${navLink('/healthcare', 'Healthcare')}
+    ${navLink('/solutions/healthcare', 'Healthcare')}
     ${navLink('/security', 'Security')}
     ${navLink('/pricing', 'Pricing')}
     ${navLink('/partners', 'Partners')}
@@ -154,7 +154,7 @@ export function publicPage({ title, description, body, user = null, canonical = 
     </div>
     <div><h4>Platform</h4>
       <a href="/#platform">Overview</a><a href="/pricing">Pricing</a><a href="/industries">Industries</a>
-      <a href="/healthcare">Healthcare</a><a href="/security">Security</a>
+      <a href="/solutions/healthcare">Healthcare</a><a href="/security">Security</a>
     </div>
     <div><h4>Company</h4>
       <a href="/partners">Partnerships</a><a href="/contact">Contact</a><a href="/status">System status</a>
