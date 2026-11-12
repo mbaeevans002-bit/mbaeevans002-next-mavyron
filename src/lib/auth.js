@@ -1,4 +1,4 @@
-import { get, run, insert } from './db.js';
+import { all, get, run, insert } from './db.js';
 import {
   hashPassword, verifyPassword, randomToken, sha256, safeEqual,
   SESSION_COOKIE, PATIENT_COOKIE, cookieOptions,
@@ -206,40 +206,7 @@ export function requirePermission(permission) {
 }
 
 export function businessesForUser(userId) {
-  return get('SELECT 1 FROM memberships WHERE user_id = ?', [userId])
-    ? require_all(userId)
-    : [];
-}
-
-function require_all(userId) {
-  // eslint-disable-next-line no-use-before-define
-  return listBusinesses(userId);
-}
-
-export function listBusinesses(userId) {
-  return get(
-    `SELECT b.*, m.role FROM businesses b
-     JOIN memberships m ON m.business_id = b.id
-     WHERE m.user_id = ? AND m.status = 'active'
-     ORDER BY b.created_at ASC`,
-    [userId]
-  )
-    ? allBusinesses(userId)
-    : [];
-}
-
-function allBusinesses(userId) {
-  // eslint-disable-next-line no-use-before-define
-  return queryBusinesses(userId);
-}
-
-function queryBusinesses(userId) {
-  // eslint-disable-next-line no-use-before-define
-  return listAll(userId);
-}
-
-function listAll(userId) {
-  return requireDb().all(
+  return all(
     `SELECT b.*, m.role FROM businesses b
      JOIN memberships m ON m.business_id = b.id
      WHERE m.user_id = ? AND m.status = 'active'
@@ -247,6 +214,8 @@ function listAll(userId) {
     [userId]
   );
 }
+
+export const listBusinesses = businessesForUser;
 
 /* ───────────────────────── tokens ───────────────────────── */
 
