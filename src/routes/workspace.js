@@ -71,12 +71,17 @@ function ctx(req, res, extra = {}) {
   };
 }
 
+function flashUrl(base, key, message) {
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}${key}=${encodeURIComponent(message)}`;
+}
+
 function done(res, base, message) {
-  res.redirect(303, `${base}?ok=${encodeURIComponent(message)}`);
+  res.redirect(303, flashUrl(base, 'ok', message));
 }
 
 function fail(res, base, message) {
-  res.redirect(303, `${base}?err=${encodeURIComponent(message)}`);
+  res.redirect(303, flashUrl(base, 'err', message));
 }
 
 function healthcareEnabled(business) {
@@ -250,6 +255,9 @@ router.get('/calendar', (req, res) => {
     date, bookings, services, staff, branches, branchId, slots, slotReason, form,
   })));
 });
+
+/* The Bookings navigation entry opens the calendar, where bookings are managed. */
+router.get('/bookings', (req, res) => res.redirect(`/app/${req.business.slug}/calendar`));
 
 router.post('/bookings', wrap(async (req, res) => {
   const business = req.business;
@@ -545,6 +553,7 @@ router.get('/finance', (req, res) => {
   };
   res.type('html').send(W.financePage(ctx(req, res, {
     summary, invoices, expenses, payments, canManage: can(req.role, 'finance.manage'),
+    customers: all('SELECT id, name FROM customers WHERE business_id = ? ORDER BY name LIMIT 500', [business.id]),
   })));
 });
 
@@ -891,7 +900,7 @@ router.get('/content', (req, res) => {
   const business = req.business;
   res.type('html').send(I.contentPage(ctx(req, res, {
     items: all('SELECT * FROM content_items WHERE business_id = ? ORDER BY created_at DESC LIMIT 100', [business.id]),
-    kinds: CONTENT_KINDS,
+    kinds: Object.keys(CONTENT_KINDS).map((kind) => [kind, kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())]),
     platforms: ['instagram', 'facebook', 'tiktok', 'x', 'whatsapp', 'email'],
     status: aiStatus(business),
   })));

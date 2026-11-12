@@ -495,7 +495,7 @@ try {
   check('Revoked API key stops authenticating', revoke.status === 303 && revokedKeyCall.status === 401, `status ${revoke.status}/${revokedKeyCall.status}`);
 
   const workflowPost = await owner.post(`${ws}/automations`, {
-    name: 'Birthday greeting', trigger: 'customer.birthday', action: 'notification.create',
+    name: 'Birthday greeting', trigger: 'customer.birthday', action: 'send_notification',
     template: 'Happy birthday from Aurora Studio', _csrf: await csrfFor(`${ws}/automations`),
   });
   const automationsPage = await owner.get(`${ws}/automations`);
