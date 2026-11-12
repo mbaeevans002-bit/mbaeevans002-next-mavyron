@@ -180,7 +180,7 @@ router.post('/:slug/book/confirm', wrap(async (req, res) => {
     throw validation('That time slot is no longer valid. Please choose another.');
   }
 
-  const booking = await createBooking({
+  const created = await createBooking({
     business,
     serviceId: service.id,
     staffId: req.body.staff_id || null,
@@ -195,11 +195,10 @@ router.post('/:slug/book/confirm', wrap(async (req, res) => {
     source: 'public_booking_page',
   });
 
-  const staff = booking.staff_id ? tenantRow('staff', booking.staff_id, business.id) : null;
-  const branch = booking.branch_id ? tenantRow('branches', booking.branch_id, business.id) : null;
+  const { booking, staff, branch } = created;
 
   res.type('html').send(bookingConfirmPage({
-    business, booking, service, staff, branch,
+    business, booking, service: created.service || service, staff, branch,
     cancelled: false, contactRequired: false, csrf: res.locals.csrf,
   }));
 }));

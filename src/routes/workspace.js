@@ -256,7 +256,7 @@ router.post('/bookings', wrap(async (req, res) => {
   const base = `/app/${business.slug}`;
   const service = tenantRow('services', String(req.body.service_id || ''), business.id);
   if (!service) throw validation('Choose a service that belongs to this business.');
-  const booking = await createBooking({
+  const { booking } = await createBooking({
     business,
     serviceId: service.id,
     staffId: req.body.staff_id || null,

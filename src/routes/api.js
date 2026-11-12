@@ -115,7 +115,7 @@ router.post('/bookings', wrap(async (req, res) => {
   if (name.length < 2) throw validation('A customer name is required.');
   if (phone.replace(/\D/g, '').length < 9) throw validation('A reachable phone number is required.');
 
-  const booking = await createBooking({
+  const { booking } = await createBooking({
     business,
     serviceId: service.id,
     staffId: req.body.staff_id || null,
