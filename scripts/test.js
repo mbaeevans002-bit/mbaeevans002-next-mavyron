@@ -49,6 +49,7 @@ function encodeForm(body = {}) {
   return params.toString();
 }
 
+class Client {
   constructor() {
     this.cookies = new Map();
   }
