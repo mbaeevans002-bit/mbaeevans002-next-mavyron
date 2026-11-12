@@ -4,9 +4,11 @@ import path from 'node:path';
 import { all, get, scalar, insert, run, update, tenantRow, DATA_DIR } from '../lib/db.js';
 import {
   id, nowIso, money, parseMoneyToCents, int, clamp, isEmail, normalisePhone,
-  parseJson, toJson, isoDate, addDays, splitList, reference,
+  parseJson, toJson, isoDate, addDays, splitList, reference, slugify, esc, attr,
 } from '../lib/util.js';
-import { can, businessesForUser, startPatientSession } from '../lib/auth.js';
+import {
+  can, businessesForUser, startPatientSession, requireAuth, loadBusiness,
+} from '../lib/auth.js';
 import {
   createBooking, cancelBooking, completeBooking, markNoShow, addToWaitlist,
   bookingsForDate, dayAvailability, bookingRules, upsertCustomer,
@@ -29,11 +31,14 @@ import {
   listAutomations, automationRuns, saveWorkflow, setAutomationStatus, runAutomation,
   automationPerformance, TRIGGERS, ACTIONS,
 } from '../lib/automation.js';
-import { entitlementsFor, changePlan, getSubscription, listPlans } from '../lib/entitlements.js';
+import {
+  entitlementsFor, changePlan, getSubscription, listPlans, startTrial,
+} from '../lib/entitlements.js';
 import { recordAudit } from '../lib/audit.js';
 import { publish } from '../lib/events.js';
 import { notificationsFor } from '../lib/notify.js';
 import { validation, notFound } from '../lib/errors.js';
+import { publicPage } from '../views/layout.js';
 import * as W from '../views/workspace.js';
 import * as I from '../views/intelligence.js';
 import { onboardingPage } from '../views/onboarding.js';
@@ -77,6 +82,122 @@ function fail(res, base, message) {
 function healthcareEnabled(business) {
   return HEALTHCARE_INDUSTRIES.includes(String(business.industry || '').toLowerCase());
 }
+
+/* ═════════════════════════ new business (no slug yet) ═════════════════════════ */
+
+const setupRouter = express.Router();
+
+const INDUSTRY_OPTIONS = [
+  ['salon', 'Salon'], ['barbershop', 'Barbershop'], ['spa', 'Spa'],
+  ['clinic', 'Clinic'], ['dental', 'Dental clinic'], ['medical', 'Medical centre'],
+  ['hospital', 'Hospital'], ['restaurant', 'Restaurant'], ['hotel', 'Hotel'],
+  ['gym', 'Gym'], ['retail', 'Retail'], ['professional', 'Professional services'],
+  ['rentals', 'Rentals'], ['other', 'Other service business'],
+];
+
+setupRouter.get('/new', requireAuth, (req, res) => {
+  const existing = businessesForUser(req.user.id);
+  const suggested = String(req.session?.businessName || '').trim();
+  const body = `<div class="wrap site-body narrow">
+    <div class="card mt3">
+      <h1 style="font-size:1.5rem">Create your business workspace</h1>
+      <p class="muted" style="font-size:.88rem">This creates an isolated tenant: its own branches, services, staff, bookings, AI receptionist and integrations. Nothing is shared with any other business.</p>
+      ${req.query.err ? `<div class="alert alert-bad mt2">${esc(String(req.query.err))}</div>` : ''}
+      <form method="post" action="/app/new" class="mt2">
+        ${W.csrfField ? W.csrfField(res.locals.csrf) : `<input type="hidden" name="_csrf" value="${attr(res.locals.csrf)}">`}
+        <div class="field"><label for="b-name">Business name</label><input id="b-name" name="name" required maxlength="120" value="${attr(suggested)}"></div>
+        <div class="field-row">
+          <div class="field"><label for="b-industry">Industry</label><select id="b-industry" name="industry">${INDUSTRY_OPTIONS.map(([value, label]) => `<option value="${attr(value)}">${esc(label)}</option>`).join('')}</select></div>
+          <div class="field"><label for="b-phone">Business phone</label><input id="b-phone" name="phone" maxlength="30" inputmode="tel" value="${attr(req.user.phone || '')}"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="b-city">City</label><input id="b-city" name="city" maxlength="80" placeholder="Nairobi"></div>
+          <div class="field"><label for="b-country">Country</label><input id="b-country" name="country" maxlength="80" value="Kenya"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="b-currency">Currency</label><input id="b-currency" name="currency" maxlength="3" value="KES" style="text-transform:uppercase"></div>
+          <div class="field"><label for="b-tz">Time zone</label><input id="b-tz" name="timezone" maxlength="60" value="Africa/Nairobi"></div>
+        </div>
+        <button class="btn btn-primary" type="submit">Create workspace</button>
+        ${existing.length ? `<p class="hint">You already belong to ${existing.length} workspace(s). <a href="/app/${attr(existing[0].slug)}">Open ${esc(existing[0].name)}</a>.</p>` : ''}
+      </form>
+    </div>
+  </div>`;
+  res.type('html').send(publicPage({
+    title: 'Create your business workspace',
+    description: 'Create an isolated MAVYRON tenant for your business.',
+    body, user: req.user,
+  }));
+});
+
+setupRouter.post('/new', requireAuth, wrap(async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (name.length < 2) throw validation('Enter your business name.');
+  const industry = String(req.body.industry || 'salon').trim().toLowerCase();
+  const city = String(req.body.city || '').trim() || null;
+  const country = String(req.body.country || 'Kenya').trim() || 'Kenya';
+  const currency = (String(req.body.currency || 'KES').trim().toUpperCase().replace(/[^A-Z]/g, '') || 'KES').slice(0, 3);
+  const timezone = String(req.body.timezone || 'Africa/Nairobi').trim() || 'Africa/Nairobi';
+  const phone = String(req.body.phone || '').trim() || null;
+
+  const root = slugify(name) || 'business';
+  let slug = root;
+  let suffix = 1;
+  while (get('SELECT id FROM businesses WHERE slug = ?', [slug])) {
+    suffix += 1;
+    slug = `${root}-${suffix}`;
+    if (suffix > 50) throw validation('That name is already in use. Choose a slightly different name.');
+  }
+
+  const org = get('SELECT * FROM organisations WHERE owner_user_id = ? ORDER BY created_at LIMIT 1', [req.user.id]);
+  const orgId = org?.id || id('org');
+  if (!org) {
+    insert('organisations', {
+      id: orgId, name: `${name} Group`, owner_user_id: req.user.id,
+      country: 'KE', created_at: nowIso(),
+    });
+  }
+
+  const businessId = id('biz');
+  insert('businesses', {
+    id: businessId, org_id: orgId, name, slug, industry,
+    description: null, logo_url: null, cover_url: null,
+    phone, email: req.user.email, whatsapp: phone,
+    address: null, city, country, timezone, currency,
+    brand_primary: '#6366f1', brand_accent: '#22d3ee',
+    gallery_json: '[]', social_json: '{}', booking_rules_json: '{}',
+    ai_personality_json: '{}', policies: null,
+    onboarding_step: 1, onboarding_completed_at: null,
+    status: 'active', created_at: nowIso(), updated_at: nowIso(),
+  });
+
+  insert('memberships', {
+    id: id('mem'), business_id: businessId, user_id: req.user.id, role: 'owner',
+    branch_id: null, status: 'active', created_at: nowIso(),
+  });
+
+  const branchId = id('brn');
+  insert('branches', {
+    id: branchId, business_id: businessId, name: 'Main branch', slug: 'main',
+    address: null, city, phone, timezone, is_primary: 1, is_active: 1, created_at: nowIso(),
+  });
+  for (let weekday = 0; weekday < 7; weekday += 1) {
+    insert('branch_hours', {
+      id: id('bh'), branch_id: branchId, weekday,
+      open_min: 540, close_min: 1080, is_closed: weekday === 0 ? 1 : 0,
+    });
+  }
+
+  try { startTrial(businessId, req.user); } catch { /* trial is created by the scheduler fallback */ }
+  ensureAgentDefaults(businessId);
+  ensureIntegrationRows(businessId);
+
+  recordAudit({
+    actor: req.user, action: 'business.created', entityType: 'business',
+    entityId: businessId, businessId, ip: req.ip, meta: { name, industry },
+  });
+  res.redirect(303, `/app/${slug}/onboarding`);
+}));
 
 /* ═════════════════════════════ dashboard ═════════════════════════════ */
 
@@ -1470,4 +1591,21 @@ router.post('/onboarding/:step/continue', (req, res) => {
   res.redirect(303, `/app/${business.slug}/onboarding?step=${Math.min(step + 1, STEP_COUNT)}`);
 });
 
-export default router;
+/* ═════════════════════════ tenant mounting ═════════════════════════
+ * Every page above is scoped to one tenant. The outer router resolves the
+ * slug, requires an authenticated session and enforces membership before any
+ * page or action runs, so tenant isolation never depends on the UI.
+ */
+const mount = express.Router();
+
+mount.use(setupRouter);
+
+mount.get('/', requireAuth, (req, res) => {
+  const list = businessesForUser(req.user.id);
+  if (!list.length) return res.redirect(303, '/app/new');
+  return res.redirect(303, `/app/${list[0].slug}`);
+});
+
+mount.use('/:slug', requireAuth, loadBusiness, router);
+
+export default mount;
