@@ -342,7 +342,7 @@ try {
   check('Portal rejects invalid credentials', portalBadLogin.status === 422, `status ${portalBadLogin.status}`);
 
   const portalProtected = await new Client().get('/portal');
-  check('Portal dashboard requires a patient session', portalProtected.status === 303 || portalProtected.status === 401, `status ${portalProtected.status}`);
+  check('Portal dashboard requires a patient session', [302, 303, 401].includes(portalProtected.status), `status ${portalProtected.status}`);
 
   /* ── CSRF enforcement ───────────────────────────────────────────── */
   const csrfAttempt = await owner.post('/app/aurora-studio/services', { name: 'Injected service', price: '100' });

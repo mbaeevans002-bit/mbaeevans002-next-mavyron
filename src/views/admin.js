@@ -25,9 +25,9 @@ export function adminPage(ctx) {
         ${Object.entries(subscriptions).map(([k, v]) => `<div class="flex between"><span class="muted">${esc(k)}</span><span class="mono">${esc(String(v))}</span></div>`).join('') || '<span class="muted">No subscriptions recorded.</span>'}
       </div>
       <div class="hr"></div>
-      <h4>AI usage by provider</h4>
-      ${usage.length ? `<div class="table-wrap mt2"><table><thead><tr><th>Provider</th><th>Runs</th><th>Tokens</th><th>Failures</th></tr></thead>
-        <tbody>${usage.map((u) => `<tr><td>${esc(u.provider || '—')}</td><td>${esc(String(u.runs))}</td><td class="mono" style="font-size:.72rem">${esc(String(u.tokens))}</td><td>${esc(String(u.failures))}</td></tr>`).join('')}</tbody></table></div>`
+      <h4>AI usage by model</h4>
+      ${usage.length ? `<div class="table-wrap mt2"><table><thead><tr><th>Model</th><th>Runs</th><th>Tokens</th><th>Failures</th></tr></thead>
+        <tbody>${usage.map((u) => `<tr><td>${esc(u.model || '—')}</td><td>${esc(String(u.runs))}</td><td class="mono" style="font-size:.72rem">${esc(String(u.tokens))}</td><td>${esc(String(u.failures))}</td></tr>`).join('')}</tbody></table></div>`
         : '<p class="muted mt1" style="font-size:.84rem">No AI usage recorded.</p>'}
     </div>
   </div>

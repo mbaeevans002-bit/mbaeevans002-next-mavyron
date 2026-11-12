@@ -38,10 +38,10 @@ router.get('/', (req, res) => {
   const subscriptions = Object.fromEntries(subscriptionRows.map((r) => [r.status, r.n]));
 
   const usage = all(
-    `SELECT provider, COUNT(*) AS runs,
+    `SELECT COALESCE(model, 'unrecorded') AS model, COUNT(*) AS runs,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failures,
-            SUM(COALESCE(tokens, 0)) AS tokens
-       FROM ai_runs WHERE created_at >= ? GROUP BY provider`,
+            SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS tokens
+       FROM ai_runs WHERE created_at >= ? GROUP BY COALESCE(model, 'unrecorded')`,
     [new Date(Date.now() - 30 * 86_400_000).toISOString()],
   );
 
