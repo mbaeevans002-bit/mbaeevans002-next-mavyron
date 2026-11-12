@@ -568,7 +568,7 @@ router.post('/finance/invoices', wrap(async (req, res) => {
     id: invoiceId, business_id: business.id, patient_id: null,
     booking_id: req.body.booking_id || null, number,
     amount_cents: amount, currency: business.currency, status: 'unpaid',
-    payer: 'self', insurance_json: null, created_at: nowIso(),
+    payer: 'self', insurance_json: '{}', created_at: nowIso(),
   });
   insert('invoice_items', {
     id: id('ivi'), invoice_id: invoiceId, business_id: business.id,
@@ -909,6 +909,10 @@ router.get('/content', (req, res) => {
 router.post('/content', wrap(async (req, res) => {
   const business = req.business;
   const base = `/app/${business.slug}`;
+  if (!aiStatus(business).configured) {
+    fail(res, `${base}/content`, 'Content generation needs an AI provider. Add a provider key under Integrations to enable it.');
+    return;
+  }
   const result = await generateContent({
     business,
     kind: String(req.body.kind || 'caption'),
@@ -974,12 +978,15 @@ router.post('/automations', wrap(async (req, res) => {
   const trigger = String(req.body.trigger || '').trim();
   const actionType = String(req.body.action || req.body.action_type || '').trim();
   if (!name || !trigger || !actionType) throw validation('A workflow needs a name, trigger and action.');
+  const template = String(req.body.template || '').trim() || null;
+  const condition = String(req.body.conditions || '').trim();
   const definition = {
     trigger,
-    conditions: String(req.body.conditions || '').trim()
-      ? [{ field: 'status', op: 'equals', value: String(req.body.conditions).trim() }]
-      : [],
-    actions: [{ type: actionType, config: { template: String(req.body.template || '').trim() || null } }],
+    nodes: [
+      { type: 'trigger', trigger },
+      ...(condition ? [{ type: 'condition', field: 'status', op: 'equals', value: condition }] : []),
+      { type: 'action', action: actionType, config: { template } },
+    ],
   };
   saveWorkflow({ businessId: business.id, name, definition, actor: req.user });
   done(res, `${base}/automations`, 'Workflow saved. It runs on the backend when its trigger fires.');
