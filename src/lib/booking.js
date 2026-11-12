@@ -299,9 +299,9 @@ export function rescheduleBooking({ business, bookingId, startAt, staffId = null
   }
   const service = get('SELECT * FROM services WHERE id = ? AND business_id = ?', [booking.service_id, business.id]);
   const targetStaff = staffId || booking.staff_id;
-  const startDate = new Date(startAt);
-  assert(!Number.isNaN(startDate.getTime()), 422, 'Choose a valid new time.', 'invalid_time');
   const tz = business.timezone || 'Africa/Nairobi';
+  const startDate = parseBookingStart(startAt, tz);
+  assert(startDate && !Number.isNaN(startDate.getTime()), 422, 'Choose a valid new time.', 'invalid_time');
   const localDate = utcToLocalParts(startDate.toISOString(), tz).date;
   const availability = dayAvailability({ business, branchId: booking.branch_id, service, staffId: targetStaff, date: localDate });
   const slot = availability.slots.find((s) => s.start === startDate.toISOString());
