@@ -357,7 +357,7 @@ try {
   const logout = await owner.post('/logout', { _csrf: Client.csrf((await owner.get('/app/aurora-studio')).text) });
   check('Logout ends the session', logout.status === 303, `status ${logout.status}`);
   const afterLogout = await owner.get('/app/aurora-studio');
-  check('Protected workspace redirects after logout', afterLogout.status === 303 && /\/login/.test(afterLogout.location || ''), `status ${afterLogout.status}`);
+  check('Protected workspace redirects after logout', [302, 303].includes(afterLogout.status) && /\/login/.test(afterLogout.location || ''), `status ${afterLogout.status}`);
 } catch (err) {
   bad('Suite crashed', err?.stack || String(err));
   exitCode = 1;

@@ -449,13 +449,14 @@ router.post('/staff', wrap(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) throw validation('A team member name is required.');
   const staffId = id('stf');
+  const palette = ['#6366f1', '#22d3ee', '#a855f7', '#f59e0b', '#10b981', '#ef4444'];
   insert('staff', {
     id: staffId, business_id: business.id,
     branch_id: req.body.branch_id || null, user_id: null, name,
     title: String(req.body.title || '').trim() || null,
     email: isEmail(String(req.body.email || '')) ? String(req.body.email).trim() : null,
     phone: String(req.body.phone || '').trim() || null,
-    color: null, is_active: 1, created_at: nowIso(),
+    color: palette[name.length % palette.length], is_active: 1, created_at: nowIso(),
   });
   const serviceIds = [].concat(req.body.services || []).filter(Boolean);
   for (const serviceId of serviceIds) {

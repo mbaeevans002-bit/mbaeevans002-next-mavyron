@@ -32,8 +32,11 @@ function loadSite(req, res, next) {
     }));
   }
   req.siteBusiness = business;
-  next();
+  return next();
 }
+
+/* Resolve the tenant for every /:slug route before any handler runs. */
+router.param('slug', (req, res, next) => loadSite(req, res, next));
 
 function nextDates(count = 21) {
   const today = isoDate();
