@@ -444,8 +444,13 @@ try {
   const invoicePaid = invoiceId
     ? await owner.post(`${ws}/finance/invoices/${invoiceId}/paid`, { _csrf: Client.csrf(financePage.text) })
     : { status: 0 };
-  const financeAfter = await owner.get(`${ws}/finance`);
-  check('Marking an invoice paid records a payment', invoicePaid.status === 303 && /recorded as paid/i.test(financeAfter.text), `status ${invoicePaid.status}`);
+  const financeAfter = await owner.get(invoicePaid.location || `${ws}/finance`);
+  const financeLedger = await owner.get(`${ws}/finance`);
+  check(
+    'Marking an invoice paid records a payment',
+    invoicePaid.status === 303 && /recorded as paid/i.test(financeAfter.text) && /<td>manual<\/td>/.test(financeLedger.text),
+    `status ${invoicePaid.status}`,
+  );
 
   const expensePost = await owner.post(`${ws}/finance/expenses`, {
     amount: '450', category: 'Supplies', note: 'Clipper blades', _csrf: await csrfFor(`${ws}/finance`),
