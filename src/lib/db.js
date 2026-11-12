@@ -22,6 +22,8 @@ export const db = existing && existing.length
 
 db.run('PRAGMA foreign_keys = ON;');
 db.exec(fs.readFileSync(path.join(here, '..', 'schema.sql'), 'utf8'));
+const phase2 = path.join(here, '..', 'schema2.sql');
+if (fs.existsSync(phase2)) db.exec(fs.readFileSync(phase2, 'utf8'));
 
 function persist() {
   const bytes = Buffer.from(db.export());
