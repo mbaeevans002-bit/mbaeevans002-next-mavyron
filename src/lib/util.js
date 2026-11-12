@@ -60,6 +60,9 @@ export function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
+/* Booking engine clamp alias — kept for the availability calculator. */
+export const bookingClamp = clamp;
+
 export function isEmail(value) {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(value.trim());
 }
