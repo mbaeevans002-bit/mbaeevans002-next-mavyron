@@ -35,7 +35,20 @@ function check(name, condition, detail = '') {
   return Boolean(condition);
 }
 
-class Client {
+/* Encode a form body, repeating the key for every array value so that
+ * multi-select fields (working days, services) arrive as separate entries. */
+function encodeForm(body = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(body)) {
+    if (Array.isArray(value)) {
+      for (const entry of value) if (entry !== undefined && entry !== null) params.append(key, String(entry));
+    } else if (value !== undefined && value !== null) {
+      params.append(key, String(value));
+    }
+  }
+  return params.toString();
+}
+
   constructor() {
     this.cookies = new Map();
   }
@@ -77,7 +90,7 @@ class Client {
         cookie: this.header(),
         ...extraHeaders,
       },
-      body: new URLSearchParams(body).toString(),
+      body: encodeForm(body),
     });
     this.absorb(res);
     return { status: res.status, text: await res.text(), location: res.headers.get('location'), headers: res.headers };
