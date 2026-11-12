@@ -1257,7 +1257,13 @@ router.get('/billing', (req, res) => {
     ent: entitlementsFor(business.id),
     plans: listPlans(),
     payments: all('SELECT * FROM payments WHERE business_id = ? ORDER BY created_at DESC LIMIT 50', [business.id]),
-    providers: PROVIDER_CATALOG.filter((p) => p.category === 'payments' || p.category === 'payment'),
+    providers: Object.entries(PROVIDER_CATALOG)
+      .filter(([, p]) => String(p.category || '').toLowerCase().startsWith('payment'))
+      .map(([provider, p]) => ({
+        provider,
+        ...p,
+        status: get('SELECT status FROM integrations WHERE business_id = ? AND provider = ?', [business.id, provider])?.status || 'configuration_required',
+      })),
   })));
 });
 

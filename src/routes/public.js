@@ -3,6 +3,7 @@ import { all, get, scalar, insert, run } from '../lib/db.js';
 import { id, nowIso, esc } from '../lib/util.js';
 import { rateLimit } from '../lib/security.js';
 import { listPlans } from '../lib/entitlements.js';
+import { resolveProvider } from '../lib/ai.js';
 import { BRAND } from '../views/layout.js';
 import {
   landing, pricingPage, industriesPage, healthcarePage, securityPage,
@@ -78,14 +79,23 @@ router.get('/status', (req, res) => {
   const dbOk = (() => {
     try { return scalar('SELECT 1') === 1; } catch { return false; }
   })();
+  const provider = resolveProvider();
   const health = {
-    database: dbOk,
-    businesses: scalar('SELECT COUNT(*) FROM businesses') || 0,
-    bookings: scalar('SELECT COUNT(*) FROM bookings') || 0,
+    app: true,
+    db: dbOk,
+    counts: {
+      businesses: scalar('SELECT COUNT(*) FROM businesses') || 0,
+      bookings: scalar('SELECT COUNT(*) FROM bookings') || 0,
+    },
+    ai: { configured: provider.configured, provider: provider.name },
+    channels: {
+      email: Boolean(process.env.RESEND_API_KEY && process.env.NOTIFICATION_FROM_EMAIL),
+      sms: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
+      whatsapp: (scalar("SELECT COUNT(*) FROM integrations WHERE provider = 'whatsapp' AND status = 'connected'") || 0) > 0,
+    },
     aiRuns: scalar('SELECT COUNT(*) FROM ai_runs') || 0,
     lastBookingAt: scalar('SELECT MAX(created_at) FROM bookings'),
     checkedAt: nowIso(),
-    integrations: all('SELECT provider, status FROM integrations'),
   };
   send(res, statusPage({ user: req.user, health }));
 });
