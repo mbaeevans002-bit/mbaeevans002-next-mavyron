@@ -1,0 +1,21 @@
+{
+  "name": "mavyron",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MAVYRON — the intelligent business operating system",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "build": "node scripts/build.js",
+    "test": "node scripts/test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "sql.js": "^1.13.0"
+  }
+}
